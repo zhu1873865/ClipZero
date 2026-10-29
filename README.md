@@ -1,150 +1,117 @@
 # ClipZero
 
-轻量的 Windows 文件粘贴保护工具。复制或剪切文件后，托盘图标会变黄；单击图标即可取消当前文件复制状态，减少在桌面误粘贴产生的副本。
+**文件复制状态，一键归零。**
 
-使用 C#、.NET 10 和 Windows Forms，采用 Windows 原生剪贴板通知。无需管理员权限；程序运行时不联网、不收集信息、不保存剪贴板历史。
+轻量的 Windows 文件剪贴板工具。复制或剪切文件后，单击托盘图标即可取消待粘贴状态，减少在桌面、文件夹里误粘贴产生的副本。
 
-这是独立的 ClipZero 项目，当前目录仅维护 Windows 文件剪贴板工具。旁边的 `LabEquipmentCenter` 是独立的设备计量网页项目；两者没有构建、运行或数据依赖，迁移本目录时无需带上另一个项目。开发入口见 [开发文档](docs/development.md)，协作范围见 [AGENTS.md](AGENTS.md)。默认只在本机开发、测试和提交 Git；推送远端、上传源码或发布软件需用户另行明确要求。
+[下载候选版](https://github.com/zhu1873865/ClipZero/releases/tag/v1.0.0-rc.1) · [使用方法](#使用) · [反馈问题](https://github.com/zhu1873865/ClipZero/issues) · [开发文档](docs/development.md)
 
-在新的独立聊天中接续本项目时，先读取 [项目交接说明](docs/HANDOFF.md)，其中保留当前实现、用户要求和未验证边界。
+![Build](https://github.com/zhu1873865/ClipZero/actions/workflows/build.yml/badge.svg?branch=main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-当前版本为 **1.0.0-rc.1 候选版**。源码和下载包见 [GitHub 仓库](https://github.com/zhu1873865/ClipZero) 与 [Release](https://github.com/zhu1873865/ClipZero/releases/tag/v1.0.0-rc.1)。实际验证范围见 [本轮验证记录](docs/verification-2026-10-29.md)。
+## 为什么做 ClipZero
 
-软件提供可选的「文件撤销设置（实验性）」。它只能确认配置是否保存，**不能保证隐藏或禁用 Explorer 撤销菜单**；彻底隐藏尚未实现。
+文件已经复制完，剪贴板却还留着上一批文件。整理桌面时误点「粘贴」，或习惯性按下 Ctrl+V，就可能多出一堆副本。
 
-在当前开发目录中，先从托盘退出旧版 ClipZero，再双击 **`启动ClipZero.cmd`**，即可打开最新构建的主窗口。该入口运行 `src/ClipZero/bin/Release/net10.0-windows/ClipZero.exe`，会使用目录中的本地 .NET 运行时；首次从源码取得项目时，需先按下方说明构建。
+ClipZero 把当前文件复制状态放到托盘里：**黄色表示有文件待粘贴，点一下即可取消；灰色表示当前没有待粘贴文件。** 取消剪切也只清空剪贴板，原位置的文件保持不变。
+
+它适合希望手动收尾文件复制、剪切操作的人：不用打开终端，也不用等到误粘贴之后再清理。
+
+## 下载
+
+当前版本为 **v1.0.0-rc.1 候选版**。多数 Intel / AMD Windows 电脑选择 **x64 独立运行版**，解压后运行 `ClipZero.exe`，无需另装 .NET。
+
+| 下载 | 适用情况 |
+| --- | --- |
+| [x64 独立运行版（推荐）](https://github.com/zhu1873865/ClipZero/releases/download/v1.0.0-rc.1/ClipZero-v1.0.0-rc.1-win-x64-self-contained.zip) | 常见 x64 Windows 电脑，内置运行时 |
+| [ARM64 独立运行版](https://github.com/zhu1873865/ClipZero/releases/download/v1.0.0-rc.1/ClipZero-v1.0.0-rc.1-win-arm64-self-contained.zip) | ARM64 Windows 电脑，内置运行时；尚未实机验收 |
+| [x64 框架依赖版](https://github.com/zhu1873865/ClipZero/releases/download/v1.0.0-rc.1/ClipZero-v1.0.0-rc.1-win-x64-framework-dependent.zip) | 包体较小，需要同架构 .NET Desktop Runtime |
+| [ARM64 框架依赖版](https://github.com/zhu1873865/ClipZero/releases/download/v1.0.0-rc.1/ClipZero-v1.0.0-rc.1-win-arm64-framework-dependent.zip) | 包体较小，需要同架构 .NET Desktop Runtime；尚未实机验收 |
+
+框架依赖版需要 **.NET Desktop Runtime 10.0.14 或更新的 10.0 补丁版**，并保留解压后的完整目录；仅安装普通 .NET Runtime 不够。[下载 .NET](https://dotnet.microsoft.com/download/dotnet/10.0)。
+
+每个 ZIP 的 SHA-256 校验文件都在 [Release 附件](https://github.com/zhu1873865/ClipZero/releases/tag/v1.0.0-rc.1) 中。系统要求为支持 .NET 10 的 Windows 桌面系统，主要面向 Windows 11；Windows 10 LTSC / Enterprise 的具体范围以 [.NET 官方支持列表](https://github.com/dotnet/core/blob/main/release-notes/10.0/supported-os.md) 为准。
 
 ## 使用
 
-1. 下载适合处理器架构的发布包并解压，运行 `ClipZero.exe`。首次启动默认只显示托盘图标，可在任务栏的隐藏图标区域找到它。
-2. 在资源管理器中复制或剪切文件、文件夹，托盘会显示待粘贴状态。
-3. 单击托盘图标、点击窗口中的「取消文件复制」，或按 **Ctrl+Alt+Backspace** 清空当前文件剪贴板。
-4. 右键托盘图标可查看状态、打开窗口、刷新、清空、操作实验性文件撤销设置和退出。关闭窗口会回到托盘；彻底退出请使用托盘菜单。
+1. 解压发布包，运行 `ClipZero.exe`。首次启动只显示托盘图标，可在任务栏的隐藏图标区域找到它。
+2. 在资源管理器中复制或剪切文件、文件夹，托盘图标会变黄。
+3. 单击托盘图标，或按 **Ctrl+Alt+Backspace**，取消当前文件待粘贴状态。
+4. 右键托盘图标可打开窗口、刷新状态或退出。关闭窗口后，程序会继续留在托盘。
 
-窗口中的「刷新」和托盘菜单的「刷新状态」可主动重新读取剪贴板与撤销配置；持续占用解除后也可再次尝试。没有待粘贴文件时单击灰色托盘保持安静。窗口支持滚动，缩小高度后仍可到达按钮；撤销设置的操作结果保留在窗口中，便于查看。
+主窗口也提供「取消文件复制 / 剪切」按钮。运行 `ClipZero.exe --show` 可直接打开窗口；没有待粘贴文件时单击灰色图标保持安静。快捷键被其他软件占用时会提示，托盘和窗口按钮仍可使用。
 
-运行 `ClipZero.exe --show` 可在启动时打开窗口。软件不设置开机启动，不拦截 Ctrl+C、Ctrl+V，也不会自动定时清空。
-
-| 状态 | 含义 |
+| 托盘状态 | 含义 |
 | --- | --- |
-| 当前无待粘贴文件 | 剪贴板中没有标准文件列表，托盘为灰色 |
-| 已复制文件 / 已剪切文件 | 检测到文件列表，托盘为黄色；窗口显示数量及名称 |
-| 状态暂时无法读取 | 剪贴板被占用或数据无法安全读取，稍后重试 |
+| 灰色 | 当前没有标准文件待粘贴状态 |
+| 黄色 | 检测到文件复制、剪切，或操作类型未知的文件列表 |
+| 棕色 | 状态暂时无法读取，可稍后刷新 |
 
-快捷键若被其他程序占用，会提示注册失败；托盘和窗口按钮仍可使用。重复启动会打开已有实例的窗口，不会创建第二个托盘实例。检测到文件但复制/剪切格式缺失或不明确时，显示「待粘贴文件（操作类型未知）」，仍可安全取消；读取失败时显示棕色状态图标。
+## 功能
 
-## 安全边界与已知限制
+- **托盘一键取消**：支持标准文件、文件夹的复制与剪切，窗口显示项目数量和文件名摘要。
+- **快捷键操作**：Ctrl+Alt+Backspace；支持冲突提示和重复启动唤起已有窗口。
+- **核对后再清空**：清空前重新检查剪贴板格式与版本，内容变化时放弃旧请求。
+- **轻量常驻**：使用 Windows 原生变化通知；剪贴板占用时有限重试，读取放在独立 STA 线程。
+- **本机使用**：无需管理员权限，程序运行时不联网、不收集信息、不保存剪贴板历史。
 
-- 清空只调用 Windows 剪贴板接口，**不会删除、移动或修改原文件**。取消剪切后，原位置的文件仍然存在。
-- 清空前会重新检查文件格式与剪贴板版本；内容已经变化时，放弃本次操作并更新状态，避免根据过期界面清除新内容。
-- 仅有文字、密码文本、图片等非文件内容时不清空。如果剪贴板同时含标准文件列表和文字等格式，一次清空会清除该剪贴板项目的全部格式。
-- 不清理 Windows 的 **Win+V 剪贴板历史**。从历史或其他剪贴板管理器中重新选择文件项目，可能再次产生待粘贴状态。
-- 识别标准 `CF_HDROP` 文件列表；通过 `Preferred DropEffect` 判断复制/剪切。预览最多 8 个文件名，每个名称最多 512 字符；数量仍显示全部项目。第一版不支持邮件附件、部分云盘等第三方虚拟文件格式。
-- 为安全读取，文件列表内存块超过 16 MiB、单项路径超过 32,767 字符或格式畸形时，会显示无法读取并拒绝清空。
-- 清空剪贴板不会清除资源管理器的「撤销重命名 / 撤销删除」记录。软件内的 [实验性文件撤销设置](docs/explorer-undo.md) 可尝试调整或恢复相关配置，但不保证菜单消失或停止撤销；只有主动点击操作才会修改设置，不会撤销已发生的文件操作。
-- 退出后不提供保护；Windows 的正常复制和粘贴继续工作。托盘图标更新依赖当前用户会话，不支持 Windows 服务模式。
+软件不设置开机启动，不自动定时清空，也不拦截 Ctrl+C / Ctrl+V；取消操作由你主动触发。
 
-## 可选：文件撤销设置（实验性）
+## 文件安全与功能边界
 
-不需要输入命令。直接在 ClipZero 中操作：
+- **不会删除、移动、重命名或修改原文件**，也不读取原文件内容。取消剪切后，原位置的文件仍然存在。
+- 纯文本、密码文本、图片等非文件项目不读取内容，也不会被清空。若同一个剪贴板项目同时包含标准文件列表和其他格式，取消时会清除该项目的全部格式。
+- 不清理 **Win+V 剪贴板历史**或第三方历史记录。重新选取历史项目后，会按新的当前内容处理。
+- 识别标准 `CF_HDROP` 文件列表，不支持邮件附件、部分云盘等第三方虚拟文件格式。只保留当前最多 8 个文件名摘要，不保存完整路径或历史。
+- 超过 16 MiB 的文件列表、超过 32,767 字符的单项路径或畸形格式会被拒绝读取和清空。
+- 已经完成的粘贴不会被撤销。退出 ClipZero 后，Windows 正常复制和粘贴继续工作。
 
-1. 在主窗口的 **「文件撤销设置（实验性）」** 中点击 **「尝试关闭撤销」**；托盘右键菜单也可进入。
-2. 「关闭设置已保存，效果未确认」只表示配置写入成功。若刚修改设置，可在保存工作后注销、重新登录一次，再用临时文件操作检查效果；**已经重新登录过就不必反复注销**。
-3. 灰色撤销项当前不能执行，但不代表以后一直禁用，也不等于隐藏。如果重新登录后，新产生的文件操作仍能撤销，说明此方案在该系统上无效；点击 **「恢复原设置」** 即可还原配置，按操作结果决定是否需要重新登录。
+### 可选：文件撤销设置（实验性）
 
-此方案使用 Windows 未公开的设置，尝试影响桌面和文件资源管理器的**全部文件撤销与重做**，包括右键菜单和 Ctrl+Z / Ctrl+Y；并非只处理两个菜单项。记事本等软件里的文字撤销不受影响。软件不会自动注销或重启电脑。更多说明见 [实验性文件撤销设置](docs/explorer-undo.md)。
+主窗口与托盘菜单提供「尝试关闭撤销」和「恢复原设置」，只有你主动点击才会修改配置。修改前备份原值，恢复时检查冲突。
 
-配置先备份至 `%LOCALAPPDATA%\ClipZero`；恢复会还原关闭前的设置。读取和保存期间暂时禁用配置按钮，防止与自身读取争用备份锁。写入失败时保留备份：若当前值仍是原值，可安全重试或仅清理备份；仅清理备份不提示注销。若被其他程序改成不同值，则停止以保护后续修改。此功能由 C# 直接实现，运行应用无需调用 PowerShell。旧的辅助脚本仍保留为高级手工工具，命令及其较严格的恢复限制见 [独立说明](docs/explorer-undo.md)。
+这项功能使用 Windows 未公开的配置，尝试影响 Explorer 的全部文件撤销 / 重做，包括 Ctrl+Z / Ctrl+Y。**配置保存成功不代表撤销已禁用，也不保证隐藏「撤销重命名 / 撤销删除」菜单。** 清空文件剪贴板本身不会移除 Explorer 的撤销记录。
 
-## 系统要求
+软件不会自动重启 Explorer、注销或重启电脑。操作范围、备份恢复和效果检查见 [实验性设置说明](docs/explorer-undo.md)。
 
-- Windows 桌面系统，支持发布 `win-x64` 和 `win-arm64`；不支持 Linux、macOS 或 Windows 7/8.1。
-- Windows 11，以及符合 .NET 10 官方支持范围的 Windows 10 LTSC / Enterprise。普通 Windows 10 版本的运行表现需要自行验证，不能据此承诺微软的系统支持。最新范围见 [.NET 10 支持的系统](https://github.com/dotnet/core/blob/main/release-notes/10.0/supported-os.md)。
-- 框架依赖版需要相同架构的 **.NET Desktop Runtime 10**，仅安装普通 .NET Runtime 不够；独立运行版无需另装运行时。运行时下载：[.NET 10](https://dotnet.microsoft.com/download/dotnet/10.0)。
+## 当前验证情况
 
-## 构建与运行
+v1.0.0-rc.1 已通过 39 项核心模拟测试、14 项安全原生/UI 检查，以及开发 EXE 和解压后 x64 便携 EXE 的启动、单实例与退出检查。四种发布包的内容、架构、运行时、源码提交和 SHA-256 已核验，GitHub 主分支及标签 CI 均通过。完整结果见 [验证记录](docs/verification-2026-10-29.md)。
 
-在 Windows 安装 .NET 10 SDK，并在仓库根目录使用 PowerShell：
+当前仍是候选版：原生剪贴板写入 / 清空测试因隔离环境权限与名称冲突跳过；真实 Explorer 交互、物理快捷键、多屏 DPI、没有 .NET 的干净机器与 ARM64 运行仍需手工验收。
+
+## 从源码构建
+
+需要 Windows 桌面环境与 .NET 10 SDK。在仓库根目录执行：
 
 ```powershell
-dotnet --info
 dotnet restore ClipZero.slnx
 dotnet build ClipZero.slnx -c Release --no-restore
 dotnet run --project src/ClipZero/ClipZero.csproj -c Release --no-build -- --show
 ```
 
-`global.json` 要求 .NET 10 稳定版 SDK，允许滚动到已安装的较新 10.0 feature band。不需要额外第三方 NuGet 库。首次还原、下载运行时包需要网络；这属于构建过程，应用本身不使用网络。如果此工作目录使用本地 SDK，可将上述 `dotnet` 替换为 `& .\.tools\dotnet\dotnet.exe`；`.tools` 不属于源码或发布内容。
-
-依赖注入后的剪贴板状态逻辑使用无第三方测试框架的控制台测试：
+运行默认测试，不更改真实剪贴板或 Explorer 设置：
 
 ```powershell
-dotnet run --project tests/ClipZero.Tests/ClipZero.Tests.csproj -c Release
+dotnet run --project tests/ClipZero.Tests/ClipZero.Tests.csproj -c Release --no-build
 ```
 
-默认测试不写入当前用户剪贴板；测试失败会以非零退出码退出。真实资源管理器交互、托盘、快捷键和高 DPI 的手工步骤见 [验收清单](docs/testing.md)。
-
-可选 Windows 原生集成测试：`dotnet run --project tests/ClipZero.Tests/ClipZero.Tests.csproj -c Release -- --native`。测试在独立的非交互 window station 中操作测试剪贴板，不接触当前用户剪贴板；隔离创建失败时输出 `SKIP`，必须与通过区分。
-
-可选安全原生/UI 测试：`dotnet run --project tests/ClipZero.Tests/ClipZero.Tests.csproj -c Release -- --ui`。测试私有内存中的文件列表解析、应用消息窗口、STA 工作线程和界面，不读取或改写用户剪贴板；会短暂注册测试快捷键，需要 Windows 桌面能力。测试截图输出到 `artifacts/screenshots/`，详见验收文档。
-
-无需打包即可测试当前开发 EXE：`dotnet run --project tests/ClipZero.Tests/ClipZero.Tests.csproj -c Release --no-build -- --development`，检查私有桌面上的启动、单实例和正常退出。实际应用会只读查看文件剪贴板元数据与撤销配置，测试不触发清空或设置修改。
-
-发布 x64 独立运行版后，可执行 `dotnet run --project tests/ClipZero.Tests/ClipZero.Tests.csproj -c Release -- --portable`，验证真实压缩 EXE 的启动、第二次启动和正常退出。该测试使用私有非输入桌面；实际应用会正常读取当前文件剪贴板元数据，测试不触发清空或快捷键。
-
-Explorer 撤销辅助脚本的可复现安全测试：
+生成本地 ZIP 与 SHA-256：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\ExplorerUndo.Tests.ps1
-```
-
-该测试只调用只读 `Status` 和 `-WhatIf`，使用临时 JSON 验证备份与恢复边界，不改写真实 Explorer 配置。
-
-## 发布便携版
-
-只生成应用文件可使用 `scripts/publish.ps1`。生成含文档、许可、构建信息及 SHA-256 的 ZIP，使用：
-
-```powershell
-# x64 独立运行、单个应用 EXE
-.\scripts\package.ps1
-
-# ARM64 独立运行版
+.\scripts\package.ps1 -Runtime win-x64 -Mode self-contained
 .\scripts\package.ps1 -Runtime win-arm64 -Mode self-contained
-
-# 已安装 .NET Desktop Runtime 10 的电脑使用较小的框架依赖包
-.\scripts\package.ps1 -Runtime win-x64 -Mode framework-dependent
 ```
 
-输出目录为 `artifacts/publish/<架构>/<模式>/`。框架依赖包需要保留整个文件夹，不能只复制 EXE。独立运行包较大，可直接携带应用 EXE；启用压缩以减小分发体积，启动时需要解压，首次启动可能稍慢。.NET 在运行时将内置的原生运行时文件解包至 `%TEMP%/.net`，所以「单文件」并不表示运行时完全不写临时文件。见 [.NET 单文件发布说明](https://learn.microsoft.com/dotnet/core/deploying/single-file/overview)。
+`-Mode framework-dependent` 可生成框架依赖包。输出位于 `artifacts/`；脚本默认使用运行时 10.0.14。独立运行版会将原生运行时解包到临时目录，首次启动可能稍慢。只需要应用输出目录时，使用 `scripts/publish.ps1`。
 
-等价的可复现命令（将 `win-x64` 换成 `win-arm64` 即可发布 ARM64）：
+[开发环境与目录职责](docs/development.md) · [架构](docs/architecture.md) · [测试与手工验收](docs/testing.md) · [发布流程](docs/releasing.md)
 
-```powershell
-# 框架依赖、多文件
-dotnet publish src/ClipZero/ClipZero.csproj -c Release -r win-x64 --self-contained false -p:RuntimeFrameworkVersion=10.0.14 -p:PublishSingleFile=false -p:PublishTrimmed=false -p:DebugType=none -p:DebugSymbols=false -p:UseSharedCompilation=false -o artifacts/publish/win-x64/framework-dependent
+## 反馈与贡献
 
-# 独立运行、单文件；WinForms 不启用 trimming
-dotnet publish src/ClipZero/ClipZero.csproj -c Release -r win-x64 --self-contained true -p:RuntimeFrameworkVersion=10.0.14 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:PublishTrimmed=false -p:DebugType=none -p:DebugSymbols=false -p:UseSharedCompilation=false -o artifacts/publish/win-x64/self-contained
-```
+欢迎通过 [Issues](https://github.com/zhu1873865/ClipZero/issues) 反馈问题或建议。报告问题时请附上 Windows 版本、处理器架构、ClipZero 版本，以及可复现的操作步骤；请使用临时测试文件，避免提交真实剪贴板内容或敏感文件名。
 
-ZIP 和校验文件位于 `artifacts/packages/`，包名包含版本、架构和模式。发布脚本每次使用干净输出，避免混入旧文件；默认运行时为 10.0.14，可通过 `-RuntimeFrameworkVersion` 显式指定。构建信息记录于包内 `BUILD-INFO.txt`。框架依赖版至少需要同架构 Desktop Runtime 10.0.14。独立运行版更新运行时需要重新发布应用。GitHub Actions 会构建、运行默认自动测试，并保存两种架构、两种发布模式的 ZIP artifact；不会自动发布 GitHub Release。发布步骤见 [发布指南](docs/releasing.md)。
-
-## 项目结构
-
-```text
-src/
-  ClipZero/             WinForms 窗口、托盘、原生 API、消息窗口与快捷键
-  ClipZero.Core/        剪贴板模型、安全清空规则与撤销设置备份/恢复
-tests/
-  ClipZero.Tests/       无第三方依赖的控制台测试
-scripts/publish.ps1     应用发布输出
-scripts/package.ps1     版本 ZIP、校验值与构建信息
-scripts/Set-ExplorerUndo.ps1  高级手工撤销设置工具
-启动ClipZero.cmd         当前开发目录的主窗口启动入口
-docs/                  技术说明、手工验收、发布指南
-.github/workflows/     Windows 构建与发布 artifact
-```
-
-开发环境、源码职责与修改流程见 [开发文档](docs/development.md)；技术实现和并发保护见 [架构说明](docs/architecture.md)，Explorer 撤销设置的边界见 [独立说明](docs/explorer-undo.md)。欢迎通过 Issue 提交操作步骤、Windows 版本及架构；请避免上传真实剪贴板内容或敏感文件名。
+开发协作约定见 [AGENTS.md](AGENTS.md)，项目接续信息见 [HANDOFF.md](docs/HANDOFF.md)。
 
 ## 许可
 
