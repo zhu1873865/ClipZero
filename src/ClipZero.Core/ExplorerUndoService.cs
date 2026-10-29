@@ -47,7 +47,7 @@ public sealed class ExplorerUndoService(IExplorerUndoStore store)
                     if (!beforeCleanup.SameAs(before)) return Changed(beforeCleanup, original);
                     session.DeleteBackup();
                     return new(ExplorerUndoOutcome.Succeeded, Snapshot(beforeCleanup, null),
-                        "原设置已保留，原备份已清理，没有再次改写设置。如之前尚未重新登录，请保存工作后注销并重新登录。");
+                        "原设置已保留，原备份已清理，没有再次改写设置。");
                 }
             }
             else if (!disable)

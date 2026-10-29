@@ -166,6 +166,8 @@ internal static class ExplorerUndoTests
                     ExplorerUndoResult restored = service.Restore();
                     Program.True(restored.Succeeded && restored.Snapshot.CanDisable && !restored.Snapshot.CanRestore);
                     Program.True(!restored.RequiresSignIn);
+                    Program.True(!restored.Message.Contains("注销", StringComparison.Ordinal));
+                    Program.True(!restored.Message.Contains("重新登录", StringComparison.Ordinal));
                     Program.True(fake.Value.SameAs(original) && fake.Backup is null);
                     Program.Equal("read,read,delete", string.Join(',', fake.Events));
                     Program.Equal(0, fake.Writes);
@@ -245,6 +247,8 @@ internal static class ExplorerUndoTests
                     ExplorerUndoResult restored = service.Restore();
                     Program.True(restored.Succeeded && restored.Snapshot.CanDisable && !restored.Snapshot.CanRestore);
                     Program.True(!restored.RequiresSignIn);
+                    Program.True(!restored.Message.Contains("注销", StringComparison.Ordinal));
+                    Program.True(!restored.Message.Contains("重新登录", StringComparison.Ordinal));
                     Program.Equal("read,read,delete", string.Join(',', fake.Events));
                     Program.Equal(2, fake.Writes);
                     Program.Equal(1, fake.BackupCreates);

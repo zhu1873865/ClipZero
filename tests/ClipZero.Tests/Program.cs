@@ -170,9 +170,12 @@ internal static class Program
         {
             failures += NativeTests.RunIsolated();
         }
-        if (args.Contains("--portable", StringComparer.Ordinal))
+        int portableIndex = Array.IndexOf(args, "--portable");
+        if (portableIndex >= 0)
         {
-            failures += PortableSmokeTests.Run();
+            string? executable = portableIndex + 1 < args.Length && !args[portableIndex + 1].StartsWith("--", StringComparison.Ordinal)
+                ? args[portableIndex + 1] : null;
+            failures += PortableSmokeTests.Run(portableExecutable: executable);
         }
         if (args.Contains("--development", StringComparer.Ordinal))
         {

@@ -76,8 +76,22 @@ internal static class NativeTests
             {
                 throw new InvalidOperationException("Refusing to show a test form outside its private desktop.");
             }
-            AppNativeTests.RenderStates();
-            return 0;
+            Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+            using var dispatcher = new Control();
+            _ = dispatcher.Handle;
+            using var context = new ApplicationContext();
+            int result = 1;
+            dispatcher.BeginInvoke((Action)(() =>
+            {
+                try { AppNativeTests.RenderStates(); result = 0; }
+                catch (Exception exception) { Console.WriteLine(exception); }
+                finally { context.ExitThread(); }
+            }));
+            // Keep the same persistent UI loop as the product. DoEvents alone removes
+            // its temporary synchronization context after each pump, which lets later
+            // synthetic click continuations run on pool threads instead of the UI.
+            Application.Run(context);
+            return result;
         }
         catch (Exception exception) { Console.WriteLine(exception); return 1; }
     }
@@ -87,12 +101,22 @@ internal static class NativeTests
         string runName = "ClipZeroTests_" + Guid.NewGuid().ToString("N");
         string report = Path.Combine(Path.GetTempPath(), runName + ".txt");
         nint original = GetProcessWindowStation();
-        // Named stations require administrator membership. NULL lets Windows derive a name
-        // from the logon session. CREATE_ONLY guarantees we never reuse somebody else's station.
-        nint station = CreateWindowStationW(null, 1, 0x02000000, 0); // CWF_CREATE_ONLY, MAXIMUM_ALLOWED
+        // Prefer a unique name: a logon-derived NULL name may already exist. Named stations
+        // require administrator membership, so permission failures may retry the derived name.
+        // Both attempts use CREATE_ONLY: neither is allowed to reuse an existing clipboard.
+        nint station = CreateWindowStationW(runName, 1, 0x02000000, 0); // CWF_CREATE_ONLY, MAXIMUM_ALLOWED
+        int namedStationError = station == 0 ? Marshal.GetLastWin32Error() : 0;
+        bool usedDerivedName = station == 0 && namedStationError is 5 or 1314; // ACCESS_DENIED / PRIVILEGE_NOT_HELD
+        if (usedDerivedName)
+        {
+            station = CreateWindowStationW(null, 1, 0x02000000, 0);
+        }
         if (station == 0)
         {
-            Console.WriteLine($"SKIP Native: could not create isolated window station ({Marshal.GetLastWin32Error()}).");
+            string detail = usedDerivedName
+                ? $"named: {namedStationError}; logon-derived: {Marshal.GetLastWin32Error()}"
+                : $"named: {namedStationError}";
+            Console.WriteLine($"SKIP Native: could not create isolated window station ({detail}).");
             return 0;
         }
 
@@ -103,6 +127,8 @@ internal static class NativeTests
         {
             var stationBuffer = new StringBuilder(256);
             if (!GetUserObjectInformationW(station, 2, stationBuffer, 512, out _) ||
+                stationBuffer.Length == 0 ||
+                (!usedDerivedName && !stationBuffer.ToString().Equals(runName, StringComparison.OrdinalIgnoreCase)) ||
                 stationBuffer.ToString().Equals("WinSta0", StringComparison.OrdinalIgnoreCase))
             {
                 Console.WriteLine("SKIP Native: failed to verify a new noninteractive station.");

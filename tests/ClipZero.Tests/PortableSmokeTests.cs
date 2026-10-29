@@ -12,14 +12,19 @@ namespace ClipZero.Tests;
 /// </summary>
 internal static class PortableSmokeTests
 {
-    internal static int Run(bool development = false)
+    internal static int Run(bool development = false, string? portableExecutable = null)
     {
         string mode = development ? "Development" : "Portable";
         string executable = Path.GetFullPath(development
             ? Path.Combine(Environment.CurrentDirectory, "src", "ClipZero", "bin", "Release", "net10.0-windows", "ClipZero.exe")
-            : Path.Combine(Environment.CurrentDirectory, "artifacts", "publish", "win-x64", "self-contained", "ClipZero.exe"));
+            : portableExecutable ?? Path.Combine(Environment.CurrentDirectory, "artifacts", "publish", "win-x64", "self-contained", "ClipZero.exe"));
         if (!File.Exists(executable))
         {
+            if (portableExecutable is not null)
+            {
+                Console.WriteLine($"FAIL Portable: the specified executable does not exist: {executable}");
+                return 1;
+            }
             Console.WriteLine(development
                 ? "SKIP Development: build ClipZero.slnx in Release first."
                 : "SKIP Portable: build the win-x64 self-contained bundle first.");

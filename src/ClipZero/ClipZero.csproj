@@ -9,7 +9,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\clipzero.ico</ApplicationIcon>
     <AssemblyName>ClipZero</AssemblyName>
-    <Version>1.0.0</Version>
+    <Version>1.0.0-rc.1</Version>
     <Description>Windows 文件粘贴保护工具</Description>
     <Copyright>Copyright (c) 2026 ClipZero contributors</Copyright>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>

@@ -48,7 +48,7 @@ dotnet run --project src/ClipZero/ClipZero.csproj -c Release --no-build -- --sho
 | `src/ClipZero/UI/` | 主窗口、状态文案和程序图标 |
 | `tests/ClipZero.Tests/` | 无第三方框架的控制台测试、可选原生／UI／EXE 冒烟 |
 | `tests/ExplorerUndo.Tests.ps1` | 辅助脚本的只读／WhatIf 安全检查 |
-| `scripts/publish.ps1` | 本地 x64／ARM64、框架依赖／独立运行输出 |
+| `scripts/publish.ps1`、`scripts/package.ps1` | 干净的本地 x64／ARM64 输出与版本 ZIP、校验文件、构建信息 |
 | `.github/workflows/build.yml` | 远端仓库中运行时的构建、默认测试与 artifact 流程；不自动发 Release |
 | `docs/` | 架构、验收、实验性设置及发布文档 |
 | `artifacts/`、`**/bin/`、`**/obj/` | 本地检查、构建与发布产物，不属于源码提交 |
@@ -93,6 +93,6 @@ $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
 
 ## 本地输出与维护流程
 
-日常修改只需 `build` 和相关测试，不必每轮打包。明确需要本地便携输出时，可运行 `scripts/publish.ps1`；脚本优先使用本项目 `.tools/dotnet/dotnet.exe`，否则查找系统 SDK。框架依赖版需要同架构 .NET Desktop Runtime 10 并保留全部文件；独立运行版体积较大且内含运行时，运行时更新需要重新生成。WinForms 不启用 trimming。命令、输出位置与正式发布验收见 [releasing.md](releasing.md)。
+日常修改只需 `build` 和相关测试，不必每轮打包。明确需要本地便携输出时，可运行 `scripts/publish.ps1`；生成版本 ZIP 和校验值则使用 `scripts/package.ps1`。脚本优先使用本项目 `.tools/dotnet/dotnet.exe`，否则查找系统 SDK。默认固定运行时 10.0.14，框架依赖版需要同架构 Desktop Runtime 10.0.14 或更新的 10.0 补丁版并保留全部文件；独立运行版内含运行时，更新运行时需要重新生成。WinForms 不启用 trimming。命令、输出位置与正式发布验收见 [releasing.md](releasing.md)。
 
 每次修改说明行为变化、相关测试与未验证项目，更新对应文档。只暂存源码和文档；`.tools/`、构建输出、测试截图、真实配置备份与剪贴板内容不进入 Git。核对当前仓库根目录后本地提交，避免把旁边的设备计量项目加入同一仓库。未经用户明确要求，不执行 `git push`，不创建线上站点或 GitHub Release。

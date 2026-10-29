@@ -100,6 +100,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (_exiting || _readingUndo || _changingUndo) return;
         int version = _undoVersion;
         _readingUndo = true;
+        ApplyExplorerUndo(_undoSnapshot);
         try
         {
             ExplorerUndoSnapshot snapshot = await Task.Run(() => _undoServiceFactory().GetStatus());
@@ -113,13 +114,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         finally
         {
             _readingUndo = false;
+            if (!_exiting) ApplyExplorerUndo(_undoSnapshot);
             if (!_exiting && !_changingUndo && version != _undoVersion) _ = RefreshExplorerUndoAsync();
         }
     }
 
     private async Task ChangeExplorerUndoAsync(bool restore)
     {
-        if (_exiting || _changingUndo) return;
+        if (_exiting || _changingUndo || _readingUndo) return;
         _undoVersion++;
         _changingUndo = true;
         ApplyExplorerUndo(_undoSnapshot);
@@ -169,9 +171,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void ApplyExplorerUndo(ExplorerUndoSnapshot? snapshot)
     {
         _undoSnapshot = snapshot;
-        _form.UpdateExplorerUndo(snapshot, _changingUndo);
-        _disableUndoItem.Enabled = !_changingUndo && snapshot?.CanDisable == true;
-        _restoreUndoItem.Enabled = !_changingUndo && snapshot?.CanRestore == true;
+        _form.UpdateExplorerUndo(snapshot, _changingUndo, _readingUndo);
+        bool available = !_changingUndo && !_readingUndo;
+        _disableUndoItem.Enabled = available && snapshot?.CanDisable == true;
+        _restoreUndoItem.Enabled = available && snapshot?.CanRestore == true;
     }
 
     private void RequestRefresh()

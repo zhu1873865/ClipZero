@@ -8,7 +8,9 @@
 
 在新的独立聊天中接续本项目时，先读取 [项目交接说明](docs/HANDOFF.md)，其中保留当前实现、用户要求和未验证边界。
 
-当前源码提供可选的「文件撤销设置（实验性）」。它只能确认配置是否保存，**不能保证隐藏或禁用 Explorer 撤销菜单**；当前机器的撤销项仍显示为灰色、无法点击，彻底隐藏尚未实现。本工作目录 `artifacts/packages/` 中已有 ZIP 来自先前构建，不包含最新集成功能。本次修改不重新打包或发布 Release。
+当前版本为 **1.0.0-rc.1 候选版**。源码和下载包见 [GitHub 仓库](https://github.com/zhu1873865/ClipZero) 与 [Release](https://github.com/zhu1873865/ClipZero/releases/tag/v1.0.0-rc.1)。实际验证范围见 [本轮验证记录](docs/verification-2026-10-29.md)。
+
+软件提供可选的「文件撤销设置（实验性）」。它只能确认配置是否保存，**不能保证隐藏或禁用 Explorer 撤销菜单**；彻底隐藏尚未实现。
 
 在当前开发目录中，先从托盘退出旧版 ClipZero，再双击 **`启动ClipZero.cmd`**，即可打开最新构建的主窗口。该入口运行 `src/ClipZero/bin/Release/net10.0-windows/ClipZero.exe`，会使用目录中的本地 .NET 运行时；首次从源码取得项目时，需先按下方说明构建。
 
@@ -52,7 +54,7 @@
 
 此方案使用 Windows 未公开的设置，尝试影响桌面和文件资源管理器的**全部文件撤销与重做**，包括右键菜单和 Ctrl+Z / Ctrl+Y；并非只处理两个菜单项。记事本等软件里的文字撤销不受影响。软件不会自动注销或重启电脑。更多说明见 [实验性文件撤销设置](docs/explorer-undo.md)。
 
-配置先备份至 `%LOCALAPPDATA%\ClipZero`；恢复会还原关闭前的设置。写入失败时保留备份：若当前值仍是原值，可安全重试或仅清理备份；若被其他程序改成不同值，则停止以保护后续修改。此功能由 C# 直接实现，运行应用无需调用 PowerShell。旧的辅助脚本仍保留为高级手工工具，命令及其较严格的恢复限制见 [独立说明](docs/explorer-undo.md)。
+配置先备份至 `%LOCALAPPDATA%\ClipZero`；恢复会还原关闭前的设置。读取和保存期间暂时禁用配置按钮，防止与自身读取争用备份锁。写入失败时保留备份：若当前值仍是原值，可安全重试或仅清理备份；仅清理备份不提示注销。若被其他程序改成不同值，则停止以保护后续修改。此功能由 C# 直接实现，运行应用无需调用 PowerShell。旧的辅助脚本仍保留为高级手工工具，命令及其较严格的恢复限制见 [独立说明](docs/explorer-undo.md)。
 
 ## 系统要求
 
@@ -99,17 +101,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\ExplorerUndo.Tes
 
 ## 发布便携版
 
-推荐使用随仓库提供的脚本：
+只生成应用文件可使用 `scripts/publish.ps1`。生成含文档、许可、构建信息及 SHA-256 的 ZIP，使用：
 
 ```powershell
 # x64 独立运行、单个应用 EXE
-.\scripts\publish.ps1
+.\scripts\package.ps1
 
 # ARM64 独立运行版
-.\scripts\publish.ps1 -Runtime win-arm64 -Mode self-contained
+.\scripts\package.ps1 -Runtime win-arm64 -Mode self-contained
 
 # 已安装 .NET Desktop Runtime 10 的电脑使用较小的框架依赖包
-.\scripts\publish.ps1 -Runtime win-x64 -Mode framework-dependent
+.\scripts\package.ps1 -Runtime win-x64 -Mode framework-dependent
 ```
 
 输出目录为 `artifacts/publish/<架构>/<模式>/`。框架依赖包需要保留整个文件夹，不能只复制 EXE。独立运行包较大，可直接携带应用 EXE；启用压缩以减小分发体积，启动时需要解压，首次启动可能稍慢。.NET 在运行时将内置的原生运行时文件解包至 `%TEMP%/.net`，所以「单文件」并不表示运行时完全不写临时文件。见 [.NET 单文件发布说明](https://learn.microsoft.com/dotnet/core/deploying/single-file/overview)。
@@ -118,13 +120,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\ExplorerUndo.Tes
 
 ```powershell
 # 框架依赖、多文件
-dotnet publish src/ClipZero/ClipZero.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -p:PublishTrimmed=false -p:DebugType=none -p:DebugSymbols=false -p:UseSharedCompilation=false -o artifacts/publish/win-x64/framework-dependent
+dotnet publish src/ClipZero/ClipZero.csproj -c Release -r win-x64 --self-contained false -p:RuntimeFrameworkVersion=10.0.14 -p:PublishSingleFile=false -p:PublishTrimmed=false -p:DebugType=none -p:DebugSymbols=false -p:UseSharedCompilation=false -o artifacts/publish/win-x64/framework-dependent
 
 # 独立运行、单文件；WinForms 不启用 trimming
-dotnet publish src/ClipZero/ClipZero.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:PublishTrimmed=false -p:DebugType=none -p:DebugSymbols=false -p:UseSharedCompilation=false -o artifacts/publish/win-x64/self-contained
+dotnet publish src/ClipZero/ClipZero.csproj -c Release -r win-x64 --self-contained true -p:RuntimeFrameworkVersion=10.0.14 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:PublishTrimmed=false -p:DebugType=none -p:DebugSymbols=false -p:UseSharedCompilation=false -o artifacts/publish/win-x64/self-contained
 ```
 
-SDK 与运行时补丁版本会影响发布结果；发布时请记录 `dotnet --info`。独立运行版随包内置运行时，更新运行时需要重新发布应用。GitHub Actions 会构建、运行默认自动测试，并保存两种架构、两种发布模式的 ZIP artifact；不会自动发布 GitHub Release。发布步骤见 [发布指南](docs/releasing.md)。
+ZIP 和校验文件位于 `artifacts/packages/`，包名包含版本、架构和模式。发布脚本每次使用干净输出，避免混入旧文件；默认运行时为 10.0.14，可通过 `-RuntimeFrameworkVersion` 显式指定。构建信息记录于包内 `BUILD-INFO.txt`。框架依赖版至少需要同架构 Desktop Runtime 10.0.14。独立运行版更新运行时需要重新发布应用。GitHub Actions 会构建、运行默认自动测试，并保存两种架构、两种发布模式的 ZIP artifact；不会自动发布 GitHub Release。发布步骤见 [发布指南](docs/releasing.md)。
 
 ## 项目结构
 
@@ -134,7 +136,8 @@ src/
   ClipZero.Core/        剪贴板模型、安全清空规则与撤销设置备份/恢复
 tests/
   ClipZero.Tests/       无第三方依赖的控制台测试
-scripts/publish.ps1     发布脚本
+scripts/publish.ps1     应用发布输出
+scripts/package.ps1     版本 ZIP、校验值与构建信息
 scripts/Set-ExplorerUndo.ps1  高级手工撤销设置工具
 启动ClipZero.cmd         当前开发目录的主窗口启动入口
 docs/                  技术说明、手工验收、发布指南

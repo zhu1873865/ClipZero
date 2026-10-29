@@ -75,6 +75,15 @@ internal static class ExplorerUndoUITests
 
     internal static void VerifyTrayIntegration()
     {
+        Program.True(SynchronizationContext.Current is WindowsFormsSynchronizationContext);
+        bool previousCrossThreadCheck = Control.CheckForIllegalCrossThreadCalls;
+        Control.CheckForIllegalCrossThreadCalls = true;
+        try { VerifyTrayIntegrationOnUIThread(); }
+        finally { Control.CheckForIllegalCrossThreadCalls = previousCrossThreadCheck; }
+    }
+
+    private static void VerifyTrayIntegrationOnUIThread()
+    {
         var store = new MemoryUndoStore();
         var feedback = new List<(string Title, string Message, bool Error)>();
         using var context = new TrayApplicationContext(false, () => new ExplorerUndoService(store),
@@ -95,6 +104,7 @@ internal static class ExplorerUndoUITests
         Program.Equal(0, store.BackupCreates);
         Program.True(store.Backup is null);
         Console.WriteLine("PASS Undo tray startup reads status without writing settings or making a backup.");
+        VerifyReadingBlocksChanges(context, form, store, clipboardTimer);
 
         disable.PerformClick();
         Program.True(!disable.Enabled && !restore.Enabled);
@@ -106,6 +116,7 @@ internal static class ExplorerUndoUITests
         Program.True(!feedback[0].Error && feedback[0].Message.Contains("注销", StringComparison.Ordinal));
         Program.True(!form.Visible);
         Console.WriteLine("PASS Undo tray close action backs up and saves through the integrated service.");
+        VerifyReadingBlocksChanges(context, form, store, clipboardTimer);
 
         restore.PerformClick();
         Program.True(!disable.Enabled && !restore.Enabled);
@@ -139,6 +150,58 @@ internal static class ExplorerUndoUITests
         Console.WriteLine("PASS Undo main window buttons reach the integrated service and restore exact original data.");
 
         VerifyManualRefresh(context, form, store, clipboardTimer);
+    }
+
+    private static void VerifyReadingBlocksChanges(TrayApplicationContext context, MainForm form,
+        MemoryUndoStore store, System.Windows.Forms.Timer clipboardTimer)
+    {
+        ToolStripMenuItem disable = Field<ToolStripMenuItem>(context, "_disableUndoItem");
+        ToolStripMenuItem restore = Field<ToolStripMenuItem>(context, "_restoreUndoItem");
+        Button formDisable = Descendants(form).OfType<Button>().Single(button => button.Text == "尝试关闭撤销");
+        Button formRestore = Descendants(form).OfType<Button>().Single(button => button.Text == "恢复原设置");
+        Label status = Descendants(form).OfType<Label>().Single(label => label.AccessibleName == "文件撤销设置状态");
+        bool couldDisable = disable.Enabled;
+        bool couldRestore = restore.Enabled;
+        int writes = store.Writes;
+        using var readEntered = new ManualResetEventSlim();
+        using var allowRead = new ManualResetEventSlim();
+        store.BeforeRead = () =>
+        {
+            readEntered.Set();
+            if (!allowRead.Wait(TimeSpan.FromSeconds(4))) throw new TimeoutException("Test read gate was not released.");
+        };
+        // Queue native clipboard refreshes while the fake undo read is deliberately blocked.
+        SetField(context, "_refreshing", true);
+        try
+        {
+            Field<ToolStripMenuItem>(context, "_refreshItem").PerformClick();
+            Program.True(!disable.Enabled && !restore.Enabled && !formDisable.Enabled && !formRestore.Enabled);
+            Program.Equal("正在读取设置…", status.Text);
+            PumpUntil(() => readEntered.IsSet, clipboardTimer);
+            int sessions = store.SessionsOpened;
+            disable.PerformClick();
+            restore.PerformClick();
+            // Also dispatch directly to verify the controller guard, independent of Enabled.
+            ClickHidden(formDisable);
+            ClickHidden(formRestore);
+            Program.Equal(sessions, store.SessionsOpened);
+            Program.Equal(writes, store.Writes);
+            Program.True(!Field<bool>(context, "_changingUndo"));
+        }
+        finally
+        {
+            store.BeforeRead = null;
+            allowRead.Set();
+            PumpUntil(() => !Field<bool>(context, "_readingUndo"), clipboardTimer);
+            SetField(context, "_refreshing", false);
+            SetField(context, "_refreshAgain", false);
+            clipboardTimer.Stop();
+        }
+        Program.Equal(couldDisable, disable.Enabled);
+        Program.Equal(couldRestore, restore.Enabled);
+        Program.Equal(couldDisable, formDisable.Enabled);
+        Program.Equal(couldRestore, formRestore.Enabled);
+        Console.WriteLine("PASS Undo refresh blocks window and tray changes until its storage session finishes.");
     }
 
     private static void ClickHidden(Button button) =>
@@ -182,7 +245,8 @@ internal static class ExplorerUndoUITests
         store.FailReads = false;
         refresh.PerformClick();
         PumpUntil(() => !Field<bool>(context, "_readingUndo"), clipboardTimer);
-        Program.True(Field<ToolStripMenuItem>(context, "_disableUndoItem").Enabled);
+        if (!Field<ToolStripMenuItem>(context, "_disableUndoItem").Enabled)
+            throw new InvalidOperationException($"Undo recovery did not re-enable changes: {status.Text}; {Field<ExplorerUndoSnapshot>(context, "_undoSnapshot")}");
         Program.Equal(4, store.Writes);
         Console.WriteLine("PASS Explicit refresh recovers unreadable undo settings and keeps unsafe actions disabled until recovery.");
 
@@ -219,6 +283,7 @@ internal static class ExplorerUndoUITests
             Thread.Sleep(5);
         }
         Program.True(condition());
+        Program.True(SynchronizationContext.Current is WindowsFormsSynchronizationContext);
     }
 
     private static void Save(MainForm form, string output, string name)
@@ -240,12 +305,22 @@ internal static class ExplorerUndoUITests
         internal int BackupCreates { get; private set; }
         internal int BackupDeletes { get; private set; }
         internal bool FailReads { get; set; }
-        public IExplorerUndoSession OpenSession() => new Session(this);
+        internal Action? BeforeRead { get; set; }
+        private int _sessionsOpened;
+        internal int SessionsOpened => Volatile.Read(ref _sessionsOpened);
+        public IExplorerUndoSession OpenSession()
+        {
+            Interlocked.Increment(ref _sessionsOpened);
+            return new Session(this);
+        }
 
         private sealed class Session(MemoryUndoStore store) : IExplorerUndoSession
         {
-            public ExplorerUndoValue ReadValue() => store.FailReads
-                ? throw new IOException("Synthetic undo-store read failure.") : store.Value;
+            public ExplorerUndoValue ReadValue()
+            {
+                store.BeforeRead?.Invoke();
+                return store.FailReads ? throw new IOException("Synthetic undo-store read failure.") : store.Value;
+            }
             public bool BackupExists => store.Backup is not null;
             public string ReadBackup() => store.Backup ?? throw new InvalidOperationException("No test backup.");
             public void CreateBackup(string json) { Program.True(store.Backup is null); store.Backup = json; store.BackupCreates++; }

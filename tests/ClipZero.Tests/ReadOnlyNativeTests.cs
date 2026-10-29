@@ -38,6 +38,24 @@ internal static class ReadOnlyNativeTests
             Program.Equal(100, files.Count);
             Program.Equal(8, files.FileNames.Count);
         });
+        Test("overlong paths beyond the preview are refused in Unicode and ANSI lists", () =>
+        {
+            string[] paths = Enumerable.Range(0, ClipboardFiles.MaximumPreviewCount)
+                .Select(i => $@"C:\test\{i}.txt").Append(new string('x', 32768)).ToArray();
+            foreach (bool wide in new[] { true, false })
+            {
+                MustReject(FileDrop(paths, wide));
+            }
+        });
+        Test("maximum-length paths remain valid across validation buffer boundaries", () =>
+        {
+            string[] paths = Enumerable.Range(0, ClipboardFiles.MaximumPreviewCount)
+                .Select(i => $@"C:\test\{i}.txt").Append(new string('x', 32767)).ToArray();
+            foreach (bool wide in new[] { true, false })
+            {
+                Program.Equal(paths.Length, Parse(FileDrop(paths, wide)).Count);
+            }
+        });
         Test("invalid header offset is refused", () =>
         {
             byte[] bytes = FileDrop([@"C:\test.txt"], true);

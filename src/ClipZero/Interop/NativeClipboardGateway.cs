@@ -42,6 +42,7 @@ public sealed class NativeClipboardGateway : IClipboardGateway
 
     private sealed class NativeSession : IClipboardSession
     {
+        private const int MaximumPathLength = 32767;
         private bool _disposed;
 
         public uint Sequence
@@ -80,7 +81,7 @@ public sealed class NativeClipboardGateway : IClipboardGateway
             for (uint index = 0; index < previewCount; index++)
             {
                 uint length = DragQueryFileW(handle, index, null, 0);
-                if (length == 0 || length > 32767)
+                if (length == 0 || length > MaximumPathLength)
                 {
                     throw new InvalidDataException("The file drop list contains an invalid path.");
                 }
@@ -177,11 +178,13 @@ public sealed class NativeClipboardGateway : IClipboardGateway
                     throw new InvalidDataException("File drop memory has an invalid path offset.");
                 }
 
-                // Check for a terminator inside the allocation, without retaining the paths
-                // or trusting allocator padding beyond the actual path list.
+                // Check every path, including entries beyond the display preview, in one pass.
+                // Do not retain paths or trust allocator padding beyond the actual path list.
                 var buffer = new byte[4096];
                 bool previousWasNull = false;
                 int stride = wide ? 2 : 1;
+                int pathStart = (int)offset;
+                int pathLength = 0;
                 for (int position = (int)offset; (nuint)position < size;)
                 {
                     int bytes = (int)Math.Min((nuint)buffer.Length, size - (nuint)position);
@@ -198,6 +201,32 @@ public sealed class NativeClipboardGateway : IClipboardGateway
                         if (isNull && previousWasNull)
                         {
                             return;
+                        }
+
+                        if (isNull)
+                        {
+                            // ANSI byte count is an upper bound on the resulting UTF-16 length.
+                            // Only long ANSI entries need a conversion-length query; no string is
+                            // allocated, and valid multibyte paths are not rejected for byte length.
+                            if (!wide && pathLength > MaximumPathLength)
+                            {
+                                int unicodeLength = MultiByteToWideChar(0, 0, data + pathStart, pathLength, 0, 0);
+                                if (unicodeLength == 0 || unicodeLength > MaximumPathLength)
+                                {
+                                    throw new InvalidDataException("The file drop list contains an invalid path.");
+                                }
+                            }
+
+                            pathLength = 0;
+                            pathStart = position + index + stride;
+                        }
+                        else
+                        {
+                            pathLength++;
+                            if (wide && pathLength > MaximumPathLength)
+                            {
+                                throw new InvalidDataException("The file drop list contains an invalid path.");
+                            }
                         }
 
                         previousWasNull = isNull;
@@ -245,6 +274,10 @@ public sealed class NativeClipboardGateway : IClipboardGateway
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern nuint GlobalSize(nint memory);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern int MultiByteToWideChar(uint codePage, uint flags, nint source, int sourceLength,
+        nint destination, int destinationLength);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern nint GlobalLock(nint memory);

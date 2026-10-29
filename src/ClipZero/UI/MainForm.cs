@@ -237,12 +237,12 @@ internal sealed class MainForm : Form
         return button;
     }
 
-    internal void UpdateExplorerUndo(ExplorerUndoSnapshot? snapshot, bool busy)
+    internal void UpdateExplorerUndo(ExplorerUndoSnapshot? snapshot, bool busy, bool reading = false)
     {
-        _undoStatus.Text = busy ? "正在保存设置…" : snapshot?.Status ?? "正在读取设置…";
+        _undoStatus.Text = busy ? "正在保存设置…" : reading ? "正在读取设置…" : snapshot?.Status ?? "正在读取设置…";
         _undoStatus.ForeColor = snapshot?.Error is null ? Muted : Color.FromArgb(151, 73, 46);
-        _disableUndo.Enabled = !busy && snapshot?.CanDisable == true;
-        _restoreUndo.Enabled = !busy && snapshot?.CanRestore == true;
+        _disableUndo.Enabled = !busy && !reading && snapshot?.CanDisable == true;
+        _restoreUndo.Enabled = !busy && !reading && snapshot?.CanRestore == true;
         _undoToolTip.SetToolTip(_undoStatus, snapshot?.Error ??
             "这里只读取设置是否已保存，无法验证 Explorer 是否采用。灰色撤销项当前不能执行，也可能只是没有可撤销操作。");
         _undoToolTip.SetToolTip(_restoreUndo, snapshot?.HasDisableSetting == true && !snapshot.CanRestore

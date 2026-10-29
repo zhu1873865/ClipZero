@@ -1,10 +1,10 @@
 # 构建与 GitHub Release 发布
 
-GitHub Actions 只构建并上传 artifact，不会创建标签或自动发布 Release。以下步骤用于维护者手工发布，首次发布前尤其需要完成 Windows 交互验收。首版功能和限制已整理在 [1.0.0 发布说明](release-notes.md)，发布时补充实际验证范围。
+GitHub Actions 只构建并上传 artifact，不会创建标签或自动发布 Release。以下步骤用于维护者发布；稳定版发布前需完成 Windows 交互验收。当前 [1.0.0-rc.1 候选版说明](release-notes.md) 明确记录尚未完成的手工验收，不将编译或自动测试等同于所有平台验收。
 
 默认仅在本机开发、测试和提交 Git。本文中的本地输出命令不上传文件；后面的远端推送、GitHub 标签及 Release 仅在用户明确要求线上发布后执行。日常环境与本地 SDK 命令见 [开发文档](development.md)。
 
-当前开发修改先完成软件内的「文件撤销设置（实验性）」和验收，不默认执行以下打包步骤。`artifacts/packages/` 中已有 ZIP 属于先前构建，不包含当前集成功能；不能作为当前源码的验证结果或交付包。
+2026-10-29 用户明确授权先审查修复、测试再上传 GitHub 与发布候选版。本轮记录见 [验证记录](verification-2026-10-29.md)。以标签对应提交、包内 `BUILD-INFO.txt` 和同名 SHA-256 为准，不能混用工作目录中的旧版 ZIP。
 
 ## 发布前
 
@@ -17,13 +17,24 @@ GitHub Actions 只构建并上传 artifact，不会创建标签或自动发布 R
 ## 四种包
 
 ```powershell
-.\scripts\publish.ps1 -Runtime win-x64 -Mode self-contained
-.\scripts\publish.ps1 -Runtime win-x64 -Mode framework-dependent
-.\scripts\publish.ps1 -Runtime win-arm64 -Mode self-contained
-.\scripts\publish.ps1 -Runtime win-arm64 -Mode framework-dependent
+.\scripts\package.ps1 -Runtime win-x64 -Mode self-contained
+.\scripts\package.ps1 -Runtime win-x64 -Mode framework-dependent
+.\scripts\package.ps1 -Runtime win-arm64 -Mode self-contained
+.\scripts\package.ps1 -Runtime win-arm64 -Mode framework-dependent
 ```
 
-脚本只构建本地目录，不上传，不创建 GitHub 标签。框架依赖版目录需要完整打包，独立运行版包含一个应用 EXE。打包时一并附上 LICENSE、README 和版本说明；MIT 要求分发时保留许可与版权声明。实验性文件撤销设置由 C# 直接实现，不依赖外部脚本。
+`package.ps1` 调用 `publish.ps1`，每次在新 staging 目录发布；成功后替换该架构/模式目录，拒绝越界路径与目录链接。ZIP 自动附上 LICENSE、README、docs、可选手工撤销脚本及 BUILD-INFO，并生成同名 `.sha256`。版本取自项目文件，运行时默认固定 10.0.14，可通过 `-RuntimeFrameworkVersion` 显式指定。先提交已验证源码，再生成正式交付包，使构建信息记录干净提交；逐个执行四个包，避免并行构建共享 obj。
+
+脚本只构建本地目录，不上传，不创建 GitHub 标签。框架依赖版需要完整目录及同架构 Desktop Runtime 10.0.14 或更高的 10.0 补丁版；独立运行版包含一个应用 EXE。实验性文件撤销设置由 C# 直接实现，不依赖外部脚本。
+
+对解压后的 x64 独立运行包执行冒烟测试（路径按实际版本替换）：
+
+```powershell
+Expand-Archive -LiteralPath .\artifacts\packages\ClipZero-v1.0.0-rc.1-win-x64-self-contained.zip -DestinationPath .\artifacts\verify\rc1-x64
+dotnet run --project tests/ClipZero.Tests/ClipZero.Tests.csproj -c Release --no-build -- --portable .\artifacts\verify\rc1-x64\ClipZero.exe
+```
+
+四种包均生成后，可运行 `.\tests\Packages.Tests.ps1 -RequireClean`：检查 SHA-256、必需文件、PE 架构、运行时与源码提交，拒绝混入工具/构建目录/真实备份，再在唯一验证目录解压 x64 独立运行包并执行冒烟。测试不清空真实剪贴板，不修改 Explorer 设置。
 
 推荐包名：
 

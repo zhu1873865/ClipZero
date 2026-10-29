@@ -44,22 +44,9 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - name: Publish
+      - name: Publish, package and checksum
         shell: pwsh
-        run: ./scripts/publish.ps1 -Runtime '${{ matrix.runtime }}' -Mode '${{ matrix.mode }}'
-      - name: Create ZIP and checksum
-        shell: pwsh
-        run: |
-          $publishPath = 'artifacts/publish/${{ matrix.runtime }}/${{ matrix.mode }}'
-          Copy-Item -LiteralPath LICENSE, README.md -Destination $publishPath
-          Copy-Item -LiteralPath docs -Destination $publishPath -Recurse
-          New-Item -ItemType Directory -Path "$publishPath/scripts" -Force | Out-Null
-          Copy-Item -LiteralPath scripts/Set-ExplorerUndo.ps1 -Destination "$publishPath/scripts"
-          New-Item -ItemType Directory -Path artifacts/packages -Force | Out-Null
-          $packagePath = 'artifacts/packages/ClipZero-${{ matrix.runtime }}-${{ matrix.mode }}.zip'
-          Compress-Archive -Path "$publishPath/*" -DestinationPath $packagePath
-          $hash = (Get-FileHash -LiteralPath $packagePath -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $(Split-Path -Leaf $packagePath)" | Set-Content -Path "$packagePath.sha256" -Encoding ascii
+        run: ./scripts/package.ps1 -Runtime '${{ matrix.runtime }}' -Mode '${{ matrix.mode }}'
       - uses: actions/upload-artifact@v7
         with:
           name: ClipZero-${{ matrix.runtime }}-${{ matrix.mode }}
