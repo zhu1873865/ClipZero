@@ -1,0 +1,67 @@
+name: Build and package
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore ClipZero.slnx
+      - name: Build
+        run: dotnet build ClipZero.slnx -c Release --no-restore
+      - name: Run clipboard logic tests
+        run: dotnet run --project tests/ClipZero.Tests/ClipZero.Tests.csproj -c Release --no-build
+      - name: Run Explorer helper tests without registry changes
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/ExplorerUndo.Tests.ps1
+
+  package:
+    name: Package ${{ matrix.runtime }} (${{ matrix.mode }})
+    needs: test
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [win-x64, win-arm64]
+        mode: [framework-dependent, self-contained]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Publish
+        shell: pwsh
+        run: ./scripts/publish.ps1 -Runtime '${{ matrix.runtime }}' -Mode '${{ matrix.mode }}'
+      - name: Create ZIP and checksum
+        shell: pwsh
+        run: |
+          $publishPath = 'artifacts/publish/${{ matrix.runtime }}/${{ matrix.mode }}'
+          Copy-Item -LiteralPath LICENSE, README.md -Destination $publishPath
+          Copy-Item -LiteralPath docs -Destination $publishPath -Recurse
+          New-Item -ItemType Directory -Path "$publishPath/scripts" -Force | Out-Null
+          Copy-Item -LiteralPath scripts/Set-ExplorerUndo.ps1 -Destination "$publishPath/scripts"
+          New-Item -ItemType Directory -Path artifacts/packages -Force | Out-Null
+          $packagePath = 'artifacts/packages/ClipZero-${{ matrix.runtime }}-${{ matrix.mode }}.zip'
+          Compress-Archive -Path "$publishPath/*" -DestinationPath $packagePath
+          $hash = (Get-FileHash -LiteralPath $packagePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $(Split-Path -Leaf $packagePath)" | Set-Content -Path "$packagePath.sha256" -Encoding ascii
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ClipZero-${{ matrix.runtime }}-${{ matrix.mode }}
+          path: artifacts/packages/*
+          if-no-files-found: error

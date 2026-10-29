@@ -1,0 +1,26 @@
+# Build, publish and test output
+**/bin/
+**/obj/
+artifacts/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Local SDK, package caches and diagnostic captures
+.tools/
+.cache/
+*.log
+
+# IDE and per-user files
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS-generated files
+Thumbs.db
+Desktop.ini
+.DS_Store

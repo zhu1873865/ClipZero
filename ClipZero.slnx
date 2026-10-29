@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ClipZero.Core/ClipZero.Core.csproj" />
+    <Project Path="src/ClipZero/ClipZero.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ClipZero.Tests/ClipZero.Tests.csproj" />
+  </Folder>
+</Solution>
